@@ -12,6 +12,7 @@ library(reshape2)
 library(dplyr)
 library(devtools)
 library(e1071)
+library(AUC)
 
 # source custom code for plots from GitHub Gist: https://gist.github.com/rjshanahan
 source_gist("e47c35277a36dca7189a")       #boxplot
@@ -21,25 +22,24 @@ source_gist("40f46687d48030d40704")       #cluster plot
 
 ###### 1. read in file and inspect data ###### 
 
-abalone <- read.csv(#'abalone.data',
-                    '/Users/rjshanahan/Documents/DATA SCIENCE/7. Predictive Analytics_INFS5100/04. Assignments/Assignment 02/abalone+hdr.csv',
-                    header=T,
-                    sep=",",
-                    quote='"',
-                    colClasses=c(
-                      'factor',    # sex
-                      'numeric',   # Length
-                      'numeric',   # Diameter
-                      'numeric',   # Height
-                      'numeric',   # Whole_weight
-                      'numeric',   # Shucked_weight
-                      'numeric',   # Viscera_weight
-                      'numeric',   # Shell_weight
-                      'numeric'    # Rings
-                    ),
-                    strip.white=T,
-                    stringsAsFactors=F,
-                    fill=T)
+abalone <- read.csv('abalone+hdr.csv',
+  header=T,
+  sep=",",
+  quote='"',
+  colClasses=c(
+    'factor',    # sex
+    'numeric',   # Length
+    'numeric',   # Diameter
+    'numeric',   # Height
+    'numeric',   # Whole_weight
+    'numeric',   # Shucked_weight
+    'numeric',   # Viscera_weight
+    'numeric',   # Shell_weight
+    'numeric'    # Rings
+  ),
+  strip.white=T,
+  stringsAsFactors=F,
+  fill=T)
 
 #inspect
 str(abalone)
@@ -82,7 +82,7 @@ mR <- median(abalone$Rings)
 madR <- mad(abalone$Rings)
 iqrR <- IQR(abalone$Rings)
 
-# recode
+# optional recode to binary target
 #abalone$ring_group <- ifelse(abalone$Rings > mR,
 #                          1,
 #                          0)
@@ -222,7 +222,7 @@ source_GitHubGist_boxplot_faces(select(abalone, var=Sex, val=Shell_weight, faces
 
 ######## 3. Histograms and barplots ######## 
 # order dataframe for bar chart purposes
-#abalone <- abalone[order(abalone$Height, abalone$Sex),]
+
 abalone <- abalone[order(abalone$Rings, abalone$Sex),]
 
 ggplot(data = abalone, 
@@ -300,7 +300,7 @@ abalone.cluster$size
 cluster_plot(abalone.cluster, abalone.scale, "Abalone Cluster Coordinate Plot") 
 
 
-###### 7. Attributes Removed ######
+###### 7. Attributes Removed - Assignmnt 1 ######
 
 abalone2 <- select(abalone, Sex, Length, Diameter, Height, Shell_weight, id, ring_group)
 
@@ -311,7 +311,7 @@ abalone2.scale <- as.data.frame(abalone2.scale[1:nrow(abalone2), 1:5])
 
 # reshape dataset for boxplot representation - un-standardised
 abalone2.m <- melt(abalone2.scale,
-                  id.var="id")
+                   id.var="id")
 
 #un-standardised boxplot - no outliers
 source_GitHubGist_boxplot(abalone2.m,
@@ -321,9 +321,9 @@ source_GitHubGist_boxplot(abalone2.m,
 
 #correlation continuous attributes
 abalone2.cor <- round(cor(abalone2[2:5], 
-                         use = "complete.obs",
-                         y=NULL,
-                         method = "pearson"), 2)
+                          use = "complete.obs",
+                          y=NULL,
+                          method = "pearson"), 2)
 
 #histograms with binwidth = 3 - used to assess splitting rules in SAS EM
 ggplot(data = abalone2, 
@@ -337,7 +337,7 @@ abalone2$Shell.bin <- ifelse(abalone2$Shell_weight <= 0.3345,
                              ifelse(abalone2$Shell_weight >= 0.3345*2,
                                     "bin3",
                                     "bin2"))
-  
+
 table(abalone2$ring_group, abalone2$Shell.bin)
 ##
 ggplot(data = abalone2, 
@@ -356,10 +356,10 @@ ggplot(data = abalone2,
   ggtitle("Abalone: Length by Ring Group") 
 
 abalone2$Length.bin <- ifelse(abalone2$Length <= 0.2466667,
-                             "bin1",
-                             ifelse(abalone2$Length >= 0.2466667*2,
-                                    "bin3",
-                                    "bin2"))
+                              "bin1",
+                              ifelse(abalone2$Length >= 0.2466667*2,
+                                     "bin3",
+                                     "bin2"))
 
 table(abalone2$ring_group, abalone2$Length.bin)
 ##
@@ -371,10 +371,10 @@ ggplot(data = abalone2,
   ggtitle("Abalone: Diameter by Ring Group") 
 
 abalone2$Dia.bin <- ifelse(abalone2$Diameter <= 0.19833,
-                              "bin1",
-                              ifelse(abalone2$Diameter >= 0.19833*2,
-                                     "bin3",
-                                     "bin2"))
+                           "bin1",
+                           ifelse(abalone2$Diameter >= 0.19833*2,
+                                  "bin3",
+                                  "bin2"))
 
 table(abalone2$ring_group, abalone2$Dia.bin)
 ##
@@ -386,10 +386,10 @@ ggplot(data = abalone2,
   ggtitle("Abalone: Height by Ring Group")
 
 abalone2$Height.bin <- ifelse(abalone2$Height <= 0.08,
-                           "bin1",
-                           ifelse(abalone2$Height >= 0.08*2,
-                                  "bin3",
-                                  "bin2"))
+                              "bin1",
+                              ifelse(abalone2$Height >= 0.08*2,
+                                     "bin3",
+                                     "bin2"))
 
 table(abalone2$ring_group, abalone2$Height.bin)
 ##
@@ -424,12 +424,12 @@ write.csv(select(abalone2, -id), file = "abalone_reworked.csv", row.names = FALS
 
 #add re-scaled continuous attributes
 abalone2 <- mutate(abalone2, length.S = abalone2$Length*200,
-         diameter.S = abalone2$Diameter*200,
-         height.S = abalone2$Height*200,
-         shell_weight.S = abalone2$Shell_weight*200)
+                   diameter.S = abalone2$Diameter*200,
+                   height.S = abalone2$Height*200,
+                   shell_weight.S = abalone2$Shell_weight*200)
 
-###### 8. MODELLING ######
-##### 8.1 Split dataframe into TRAIN and TEST and CALIBRATE#####
+########### 8. MODELLING ######
+########### 8.1 Split dataframe into TRAIN and TEST and CALIBRATE#####
 
 #NOTE: comment this code once run initially - if rerun it will recreate slightly different sized and 
 #randomised samples - ie, differing results for predictive models
@@ -444,7 +444,7 @@ dim(abalone_train)
 dim(abalone_test)
 
 
-############ 7.2 DECISION TREE with 'rpart' package ###############
+############ 8.2 DECISION TREE with 'rpart' package ###############
 library(rpart)
 library(rattle)
 library(rpart.plot)
@@ -490,115 +490,12 @@ abalone_test %>%
 
 
 
-############ Assignment 02 File Rework ############ 
+############ 9. Assignment 02 File Rework ############ 
 
-#output file with all attributes and outliers removed
-abalone3 <- select(abalone, Sex, Length, Diameter, Height, Shell_weight,
-                   Whole_weight, Shucked_weight, Viscera_weight, ring_group)
-
-#write to file
-write.csv(abalone3, file = "abalone_reworked_02.csv", row.names = FALSE)
-
-
-#import score tuple dataset for analysis
-abalone_score <- read.csv(#'abalone.data',
-  '/Users/rjshanahan/Documents/DATA SCIENCE/7. Predictive Analytics_INFS5100/04. Assignments/Assignment 02/abalone_test.csv',
-  header=T,
-  sep=",",
-  quote='"',
-  colClasses=c(
-    'factor',    # sex
-    'numeric',   # Length
-    'numeric',   # Diameter
-    'numeric',   # Height
-    'numeric',   # Whole_weight
-    'numeric',   # Shucked_weight
-    'numeric',   # Viscera_weight
-    'numeric',   # Shell_weight
-    'numeric'    # Rings
-  ),
-  strip.white=T,
-  stringsAsFactors=F,
-  fill=T)
-
-
-#inspect
-str(abalone_score)
-describe(abalone_score)
-
-#check for duplicate records based
-nrow(unique(abalone_score))
-
-#check if there are any missing values
-colSums(is.na(abalone_score)) 
-
-
-# recode RINGS to reduce the number of classes
-
-# study distribution
-ggplot(data = abalone_score, 
-       aes(x=Rings, fill=Sex)) + 
-  geom_histogram(binwidth=1) +
-  ggtitle("Abalone: Histogram of Rings by Sex - binwidth = 1 ring ('~0.4 years')")
-
-mR <- median(abalone$Rings)
-madR <- mad(abalone_score$Rings)
-iqrR <- IQR(abalone_score$Rings)
-
-# recode
-abalone_score$ring_group <- ifelse(abalone_score$Rings > mR,
-                             1,
-                             0)
-
-table(abalone_score$ring_group)
-
-ggplot(data = abalone_score, 
-       aes(x=Rings, fill=factor(ring_group))) + 
-  geom_histogram(binwidth=1) +
-  ggtitle("Abalone: Histogram of Rings by 'Ring Group' - binwidth = 1 ring ('~0.4 years')")
-
-
-#Grouped Boxplots
-# assign id field for visualisations
-abalone_score$id <- 1:nrow(abalone_score)
-
-# reshape dataset for boxplot representation - un-standardised
-abalone_score.m <- melt(select(abalone_score, -Sex, -ring_group),
-                  id.var="id")
-
-#un-standardised boxplot
-source_GitHubGist_boxplot(abalone_score.m,
-                          "Abalone Boxplots for Continuous Attributes - Significant Outliers Removed",
-                          "variable name",
-                          "un-standardised value")
-
-#standardise
-abalone_score.scale <- scale(abalone_score[,2:11])
-abalone_score.scale <- as.data.frame(abalone_score.scale[1:nrow(abalone_score),])
-
-# reshape dataset for boxplot representation - standardised
-abalone_score.scale.m <- melt(abalone_score.scale,
-                        id.var="id")
-
-#standardised boxplot
-source_GitHubGist_boxplot(abalone_score.scale.m,
-                          "Abalone Boxplots for Continuous Attributes - Outliers Removed",
-                          "variable name",
-                          "standardised value")
-
-#write to file
-write.csv(abalone_score[,1:8], file = "abalone_score.csv", row.names = FALSE)
-
-
-
-
-
-############ 6.6 NAIVE BAYES with 'e1071' package ###############
-
+############ 9.1 Read in Partitioned Files from SAS EM & Inspect/Pre-process
 
 #import TEST dataset used in SAS EM
-abalone_train_SAS <- read.csv(#'abalone.data',
-  '/Users/rjshanahan/Documents/DATA SCIENCE/7. Predictive Analytics_INFS5100/04. Assignments/Assignment 02/abalone_train.txt',
+abalone_train_SAS <- read.csv('abalone_train.txt',
   header=T,
   sep="\t",
   quote='"',
@@ -623,8 +520,7 @@ describe(abalone_train_SAS)
 
 
 #import TEST dataset used in SAS EM
-abalone_test_SAS <- read.csv(#'abalone.data',
-  '/Users/rjshanahan/Documents/DATA SCIENCE/7. Predictive Analytics_INFS5100/04. Assignments/Assignment 02/abalone_test.txt',
+abalone_test_SAS <- read.csv('abalone_test.txt',
   header=T,
   sep="\t",
   quote='"',
@@ -649,8 +545,7 @@ describe(abalone_test_SAS)
 
 
 #import SCORE dataset used in SAS EM
-abalone_score_SAS <- read.csv(#'abalone.data',
-  '/Users/rjshanahan/Documents/DATA SCIENCE/7. Predictive Analytics_INFS5100/04. Assignments/Assignment 02/abalone_test_tuple.csv',
+abalone_score_SAS <- read.csv('abalone_test_tuple.csv',
   header=T,
   sep=",",
   quote='"',
@@ -675,7 +570,59 @@ describe(abalone_score_SAS)
 
 
 
-#Naive Bayes Model and configuration
+# recode RINGS to reduce the number of classes
+
+abalone_score_SAS$ring_group <- ifelse(abalone_score_SAS$Rings >= mR + madR,
+                             "Old",
+                             (ifelse(abalone_score_SAS$Rings <= mR - madR,
+                                     "Young",
+                                     "Adult")))
+
+table(abalone_score_SAS$ring_group)
+
+ggplot(data = abalone_score_SAS, 
+       aes(x=Rings, fill=factor(ring_group))) + 
+  geom_histogram(binwidth=1) +
+  ggtitle("Abalone SCORE: Histogram of Rings by 'Ring Group' - binwidth = 1 ring ('~0.4 years')")
+
+
+
+#output file with all attributes and outliers removed
+abalone_score_SAS_out <- select(abalone_score_SAS, Sex, Length, Diameter, Height, Shell_weight,
+                   Whole_weight, Shucked_weight, Viscera_weight, ring_group)
+
+#write to file
+write.csv(abalone_score_SAS_out, file = "abalone_reworked_score.csv", row.names = FALSE)
+
+
+
+#continuous attributes correlation for SCORE dataset
+abalone_score.cor <- round(cor(abalone_score_SAS[2:9], 
+                               use = "complete.obs",
+                               y=NULL,
+                               method = "pearson"), 2)
+
+############ 9.2 Visualise SCORE Distributions ###############
+
+#visualise SCORE distributions
+abalone_score.scale <- scale(abalone_score_SAS[,2:9])
+abalone_score.scale <- as.data.frame(abalone_score.scale[1:nrow(abalone_score_SAS), 1:8])
+
+# reshape dataset for boxplot representation - standardised
+abalone_score.scale$id <- 1:nrow(abalone_score_SAS)
+
+abalone_score.scale.m <- melt(abalone_score.scale,
+                              id.var="id")
+
+#standardised boxplot - no outliers
+source_GitHubGist_boxplot(abalone_score.scale.m,
+                          "Abalone SCORE Boxplots for Continuous Attributes",
+                          "variable name",
+                          "standardised value")
+
+
+############ 9.2 NAIVE BAYES with 'e1071' package ###############
+
 fit <- naiveBayes(ring_group ~ Sex + Length  + Diameter + Height + Whole_weight + Shucked_weight + Viscera_weight + Shell_weight,
                   data=abalone_train_SAS,
                   laplace = 3)
@@ -702,27 +649,13 @@ misclass_test
 abalone_score_SAS$pred <- predict(fit, abalone_score_SAS)
 table(abalone_score_SAS$pred)
 
-# recode for comparison
-abalone_score_SAS$ring_group <- ifelse(abalone_score_SAS$Rings >= mR + madR,
-                             "Old",
-                             (ifelse(abalone_score_SAS$Rings <= mR - madR,
-                                     "Young",
-                                     "Adult")))
-
-
-ggplot(data = abalone_score_SAS, 
-       aes(x=Rings, fill=factor(ring_group))) + 
-  geom_histogram(binwidth=1) +
-  ggtitle("Abalone SCORE: Histogram of Rings by 'Ring Group' - binwidth = 1 ring ('~0.4 yrs')")
-
-
-
-
 
 #misclassification rate
 misclass_score <- sum(ifelse(abalone_score_SAS$ring_group == abalone_score_SAS$pred, 1, 0))/nrow(abalone_score_SAS)
 
 misclass_score
+
+
 
 #check assumption of indepdence between attributes - chi square test
 apply(abalone,
@@ -732,7 +665,6 @@ apply(abalone,
 
 
 # calculate AUC
-library(AUC)
 
 #metrics for TEST
 sensit_test <- sensitivity(abalone_test_SAS$pred, abalone_test_SAS$ring_group)
@@ -750,33 +682,9 @@ specif_train <- specificity(abalone_train_SAS$pred, abalone_train_SAS$ring_group
 accur_train <- accuracy(abalone_train_SAS$pred, abalone_train_SAS$ring_group)
 roc_train <- roc(abalone_train_SAS$pred, abalone_train_SAS$ring_group)
 
+#plot the ROC
 plot(roc_train, min=0, max=1)
 
 auc_train <- auc(sensit_train, 0, 1)
 
 
-
-
-#continuous attributes correlation
-abalone_score.cor <- round(cor(abalone_score_SAS[2:9], 
-                         use = "complete.obs",
-                         y=NULL,
-                         method = "pearson"), 2)
-
-
-
-#visualise SCORE distributions
-abalone_score.scale <- scale(abalone_score_SAS[,2:9])
-abalone_score.scale <- as.data.frame(abalone_score.scale[1:nrow(abalone_score_SAS), 1:8])
-
-# reshape dataset for boxplot representation - standardised
-abalone_score.scale$id <- 1:nrow(abalone_score_SAS)
-
-abalone_score.scale.m <- melt(abalone_score.scale,
-                        id.var="id")
-
-#standardised boxplot - no outliers
-source_GitHubGist_boxplot(abalone_score.scale.m,
-                          "Abalone SCORE Boxplots for Continuous Attributes",
-                          "variable name",
-                          "standardised value")
